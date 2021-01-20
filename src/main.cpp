@@ -5,12 +5,17 @@
 #include <FS.h>
 #include <ESPAsyncWebServer.h>
 #include <OneWire.h>
+#include <Wire.h>
 #include <DallasTemperature.h>
 #include <ArduinoJson.h>
 #include <TimeLib.h>
+#include <LiquidCrystal_I2C.h>
 
 #define MAX_RECIPE_FILE_SIZE 2024
 #define RECIPE_FILE "/config/config.json"
+// LiquidCrystal_I2C lcd(0x27,20,4);  // set the LCD address to 0x27 for a 16 chars and 2 line display
+LiquidCrystal_I2C lcd(0x27, 20, 4); // set the LCD address to 0x0 for a 16 chars and 2 line display
+
 
 // FS *_fs;
 String Quantidade_rampas;
@@ -72,9 +77,10 @@ boolean loadRecipeSettings()
 }
 
 // GPIO where the output is connected to
-const int output = 4;
+const int output = 2;
+// const int output = 13;
 // GPIO where the DS18B20 is connected to
-const int oneWireBus = 5;   
+const int oneWireBus = 12;   
 
 // Setup a oneWire instance to communicate with any OneWire devices
 OneWire oneWire(oneWireBus);
@@ -97,6 +103,15 @@ DallasTemperature sensors(&oneWire);
     return String(tempC);
   }
 void setup(){
+
+  //LCD
+  lcd.init();// initialize the lcd 
+
+  lcd.backlight();
+  lcd.setCursor(1, 0);
+  lcd.print("WELCOME");
+  lcd.setCursor(1, 1);
+  lcd.print("BREWESP");
 
   // Starts Serial Monitor with 9600 baud rate
   Serial.begin(9600);
@@ -186,6 +201,8 @@ void loop(){
   if(brew_started){
     while(flag){
         Serial.println("Brew started");
+        lcd.clear();
+        lcd.print("Brew started");
         flag = 0;
     }
     unsigned long currentMillis = millis();
@@ -194,15 +211,46 @@ void loop(){
       sensors.requestTemperatures();
       // Temperature in Celsius degrees 
       float temperature = sensors.getTempCByIndex(0);
+
+      lcd.clear();
+      lcd.setCursor (0,0); //character zero, line 1
+      lcd.print("Temperatura: "); // print text  
+      lcd.setCursor (14,0); //character zero, line 1
+      lcd.print(temperature);
+      
+      lcd.setCursor (0,1); //character 4, line 2
+      lcd.print("Etapa: "); // print text   
+
+      lcd.setCursor (0,2); //character 0, line 3
+      lcd.print("Tempo: "); // print text 
+
+      int seconds = (currentMillis - brew_init_time) / 1000;
+      // int seconds = currentMillis / 1000;
+      int minutes = seconds / 60;
+      seconds %= 60;
+      lcd.setCursor (9,2); //character 0, line 3
+      lcd.print(minutes);
+      lcd.print(':');
+      if (seconds < 10) {
+        lcd.print('0');
+      }
+      lcd.print(seconds);
       
       //Se estiver em pré-rampa, acionar a resistência até chegar ao threshold
       if(preRamp){
         Serial.println("Pré rampa: " + String(active_stage + 1));
+        lcd.setCursor (7,1); //character 4, line 2
+        lcd.print("PRE RAMPA "); // print text 
+        lcd.print(active_stage + 1); // print text 
+        
         digitalWrite(output, HIGH);
         if(temperature >= (temperature_array[active_stage].toFloat())){
           init_clock = 0;
           preRamp = 0;
           Serial.println("Iniciando rampa: " + String(active_stage + 1));
+          lcd.print("RAMPA "); // print text 
+          lcd.setCursor (9,1); //character 4, line 2
+          lcd.print(active_stage); // print text 
           //Se a temperatura ambiente for maior ou igual a temperatura alvo e se a rampa não foi iniciada, a rampa inicia
           while (init_clock == 0)
           {
