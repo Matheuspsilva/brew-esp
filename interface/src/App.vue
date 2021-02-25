@@ -2,16 +2,23 @@
   <div id="app">
     <img alt="Vue logo" src="./assets/logo.png">
     <HelloWorld msg="BrewSystem"/>
+    <div class="container mt-3" style="background-color:#f1f1f1;">
+      <div>
+      <!-- <LineChart/> -->
+      </div>
+    </div>
   </div>
 </template>
 
 <script>
 import HelloWorld from './components/HelloWorld.vue'
+// import LineChart from "./components/LineChart.vue"
 
 export default {
   name: 'App',
   components: {
     HelloWorld
+    // ,LineChart
   }
 }
 </script>

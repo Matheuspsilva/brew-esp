@@ -45,6 +45,56 @@ void notFound(AsyncWebServerRequest *request) {
   request->send(404, "text/plain", "Not found");
 }
 
+
+void showWelcome(){
+  //LCD
+  lcd.init();// initialize the lcd 
+
+  lcd.backlight();
+  lcd.setCursor(1, 0);
+  lcd.print("WELCOME");
+  lcd.setCursor(1, 1);
+  lcd.print("ESPBREW");
+
+}
+void showTemperature(float temperature){
+  
+  lcd.clear();
+  lcd.setCursor (0,0); //character zero, line 1
+  lcd.print("Temperatura: "); // print text  
+  lcd.setCursor (14,0); //character zero, line 1
+  lcd.print(temperature);
+}
+
+void showActiveStage(int active_stage, boolean preRamp){
+
+  lcd.setCursor (0,1); //character 4, line 2
+  if(preRamp){
+    lcd.print("PRE-RAMPA "); // print text 
+  }else{
+    lcd.print("RAMPA "); // print text 
+  }
+  lcd.print(active_stage); // print text 
+}
+
+void showTime(unsigned long currentMillis, unsigned long brew_init_time){
+
+      lcd.setCursor (0,2); //character 0, line 3
+      lcd.print("Tempo: "); // print text 
+
+      //Conversão do tempo para ser exibido
+      unsigned long seconds = (currentMillis - brew_init_time) / 1000;
+      unsigned long minutes = seconds / 60;
+      seconds %= 60;
+      lcd.setCursor (9,2); //character 0, line 3
+      lcd.print(minutes);
+      lcd.print(':');
+      if (seconds < 10) {
+        lcd.print('0');
+      }
+      lcd.print(seconds);
+}
+
 boolean loadRecipeSettings()
 {
     File configFile = SPIFFS.open(RECIPE_FILE, "r");
@@ -76,9 +126,21 @@ boolean loadRecipeSettings()
     return true;
 }
 
+static const char ACTIVE_STATUS[] PROGMEM = "{\"quantidade_rampas\":{{quantidade_rampas}},\"tempo_1\":{{tempo_1}},\"temperatura_1\":\"{{temperatura_1}}\" }";
+
+String GetJson()
+{
+    String active_status = FPSTR(ACTIVE_STATUS);
+    active_status.replace("{{quantidade_rampas}}", String(Quantidade_rampas));
+    active_status.replace("{{tempo_1}}", String(time_array[0]));
+    active_status.replace("{{temperatura_1}}", String(temperature_array[0]));
+
+    return active_status;
+}
+
 // GPIO where the output is connected to
-const int output = 2;
-// const int output = 13;
+const int output = 14;
+
 // GPIO where the DS18B20 is connected to
 const int oneWireBus = 12;   
 
@@ -104,14 +166,7 @@ DallasTemperature sensors(&oneWire);
   }
 void setup(){
 
-  //LCD
-  lcd.init();// initialize the lcd 
-
-  lcd.backlight();
-  lcd.setCursor(1, 0);
-  lcd.print("WELCOME");
-  lcd.setCursor(1, 1);
-  lcd.print("BREWESP");
+  showWelcome();
 
   // Starts Serial Monitor with 9600 baud rate
   Serial.begin(9600);
@@ -160,22 +215,19 @@ void setup(){
       } else {
           message = "Brew not started";
       }
-
-      // request->send(200, "text/plain", "Hello, GET: " + message);
       request->redirect("/");
-
   });
 
-  server.on("/css/app.b7bec5aa.css", HTTP_GET, [](AsyncWebServerRequest *request){
-    request->send(SPIFFS, "/css/app.b7bec5aa.css", "text/css");
+  server.on("/css/app.d2b32df2.css", HTTP_GET, [](AsyncWebServerRequest *request){
+    request->send(SPIFFS, "/css/app.d2b32df2.css", "text/css");
   });
 
   server.on("/css/chunk-vendors.367538c2.css", HTTP_GET, [](AsyncWebServerRequest *request){
     request->send(SPIFFS, "/css/chunk-vendors.367538c2.css", "text/css");
   });
 
-  server.on("/js/app.fdb535df.js", HTTP_GET, [](AsyncWebServerRequest *request){
-    request->send(SPIFFS, "/js/app.fdb535df.js");
+  server.on("/js/app.cb5ee36f.js", HTTP_GET, [](AsyncWebServerRequest *request){
+    request->send(SPIFFS, "/js/app.cb5ee36f.js");
   });
 
   server.on("/js/chunk-vendors.334450e7.js", HTTP_GET, [](AsyncWebServerRequest *request){
@@ -194,6 +246,12 @@ void setup(){
   server.on("/temperaturec", HTTP_GET, [](AsyncWebServerRequest *request){
     request->send_P(200, "text/plain", readDSTemperatureC().c_str());
   });
+
+  server.on("/receita", HTTP_GET, [](AsyncWebServerRequest *request)
+  {
+      request->send(200,  "application/json", GetJson());
+  });
+
 }
 
 void loop(){
@@ -209,48 +267,25 @@ void loop(){
     if (currentMillis - previousMillis >= interval) {
       previousMillis = currentMillis;
       sensors.requestTemperatures();
+
       // Temperature in Celsius degrees 
       float temperature = sensors.getTempCByIndex(0);
 
-      lcd.clear();
-      lcd.setCursor (0,0); //character zero, line 1
-      lcd.print("Temperatura: "); // print text  
-      lcd.setCursor (14,0); //character zero, line 1
-      lcd.print(temperature);
-      
-      lcd.setCursor (0,1); //character 4, line 2
-      lcd.print("Etapa: "); // print text   
-
-      lcd.setCursor (0,2); //character 0, line 3
-      lcd.print("Tempo: "); // print text 
-
-      int seconds = (currentMillis - brew_init_time) / 1000;
-      // int seconds = currentMillis / 1000;
-      int minutes = seconds / 60;
-      seconds %= 60;
-      lcd.setCursor (9,2); //character 0, line 3
-      lcd.print(minutes);
-      lcd.print(':');
-      if (seconds < 10) {
-        lcd.print('0');
-      }
-      lcd.print(seconds);
+      showTemperature(temperature);
+      showTime(currentMillis, brew_init_time); 
       
       //Se estiver em pré-rampa, acionar a resistência até chegar ao threshold
       if(preRamp){
-        Serial.println("Pré rampa: " + String(active_stage + 1));
-        lcd.setCursor (7,1); //character 4, line 2
-        lcd.print("PRE RAMPA "); // print text 
-        lcd.print(active_stage + 1); // print text 
+        Serial.println("Pré rampa: " + String(active_stage));
+        showActiveStage(active_stage, preRamp);
         
         digitalWrite(output, HIGH);
         if(temperature >= (temperature_array[active_stage].toFloat())){
+          //Inicia contagem de tempo da rampa
           init_clock = 0;
+          //Desativa pré rampa
           preRamp = 0;
-          Serial.println("Iniciando rampa: " + String(active_stage + 1));
-          lcd.print("RAMPA "); // print text 
-          lcd.setCursor (9,1); //character 4, line 2
-          lcd.print(active_stage); // print text 
+          Serial.println("Iniciando rampa: " + String(active_stage));
           //Se a temperatura ambiente for maior ou igual a temperatura alvo e se a rampa não foi iniciada, a rampa inicia
           while (init_clock == 0)
           {
@@ -260,6 +295,8 @@ void loop(){
           }
         }
       }else{
+
+        showActiveStage(active_stage, preRamp);
         // Se Horário atual >= Horário do fim da rampa
         if(currentMillis >= ((time_array[active_stage].toFloat() * 1000) + ramp_start_time)){
           active_stage ++;
