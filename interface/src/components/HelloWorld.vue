@@ -1,9 +1,7 @@
 <template>
-<b-container class="bv-example-row" style="padding-right: 0px;padding-left: 0px;">
+<b-container class="bv-example-row">
   <div class="hello">
     <h1>{{ msg }}</h1>
-
-          
           <div>
             <b-card-group deck>
 
@@ -14,14 +12,13 @@
                 class="mb-2 text-center"
               >
                 <b-card-text>
-                  <p id="temperaturec" name="temperaturec">%TEMPERATUREC%</p>
+                  <h1 id="temperaturec" name="temperaturec">%TEMPERATUREC%</h1>
                   <sup class="units">&deg;C</sup>
                 </b-card-text>
 
               </b-card>
 
               <b-card
-                title="Receita"
                 tag="article"
                 style="max-width: 20rem;"
                 class="mb-2"
@@ -71,14 +68,6 @@ export default {
 </script>
 
 <script>
-    var xhttp = new XMLHttpRequest();
-    xhttp.onreadystatechange = function() {
-      if (this.readyState == 4 && this.status == 200) {
-        document.getElementById("receita").innerHTML = this.responseText;
-      }
-    };
-    xhttp.open("GET", "/receita", true);
-    xhttp.send();
     setInterval(function ( ) {
       var xhttp = new XMLHttpRequest();
       xhttp.onreadystatechange = function() {
@@ -89,6 +78,16 @@ export default {
       xhttp.open("GET", "/temperaturec", true);
       xhttp.send();
     }, 10000);
+    setInterval(function ( ) {
+    var xhttp = new XMLHttpRequest();
+    xhttp.onreadystatechange = function() {
+      if (this.readyState == 4 && this.status == 200) {
+        document.getElementById("receita").innerHTML = this.responseText;
+      }
+    };
+    xhttp.open("GET", "/receita", true);
+    xhttp.send();
+  }, 10000) ;
 </script>
 
 <!-- Add "scoped" attribute to limit CSS to this component only -->
